@@ -13,7 +13,38 @@
 # Configuration
 #
 
+#
+# Configure an Editor. You may want to use vi.
+#
+
 editor=e
+
+#
+# Configure for graphical programs
+#
+#
+# If you want to run graphical programs from within
+# Docker, you can first install socat on your host,
+# like
+#
+# brew install socat
+#
+# Then run socat like so:
+#
+# socat TCP-LISTEN:6000,reuseaddr,fork UNIX-CLIENT:\"$DISPLAY\"
+#
+# Then, if on a Mac, run Xqartz and configure it under
+# Security to allow connections from network clients;
+# depending on your configuration, you may or may not
+# Authenticat connections (same configuration page).
+# Finally, you just pass in the IP as a configuration
+# option like so:
+#
+# -e DISPLAY=$myip:0
+#
+myip=$(ifconfig | grep -v :: | grep inet | \
+       awk '{print $2}' | cut -d':' -f2 | \
+       grep -iv 127.0.0.1 | head -1)
 
 #
 ###################################################
@@ -199,7 +230,11 @@ console() {
   fi
 
   echo ""
-  docker exec -it "$vmname" /bin/bash
+  if [[ $myip != "" ]]; then
+    docker exec -e DISPLAY=$myip:0 --privileged -it "$vmname" /bin/bash
+  else
+    docker exec --privileged -it "$vmname" /bin/bash
+  fi
   echo ""
 }
 
