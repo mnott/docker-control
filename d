@@ -132,9 +132,11 @@ stop_running_container() {
     vmname=$1
   fi
 
-  echo ""
-  docker stop "$vmname"
-  echo ""
+  for i in $vmname; do
+    echo ""
+    docker stop "$i"
+    echo ""
+  done
 }
 
 start_container() {
@@ -146,10 +148,13 @@ start_container() {
     vmname=$1
   fi
 
-  echo ""
-  docker start "$vmname"
-  echo ""
+  for i in $vmname; do
+    echo ""
+    docker start "$i"
+    echo ""
+  done
 }
+
 
 remove_container() {
   if [[ "" == "$1" ]]; then
@@ -160,9 +165,12 @@ remove_container() {
     vmname=$1
   fi
 
-  echo ""
-  docker rm "$vmname"
-  echo ""
+
+  for i in $vmname; do
+    echo ""
+    docker rm "$i"
+    echo ""
+  done
 }
 
 remove_stopped_containers() {
@@ -198,9 +206,11 @@ remove_image() {
     vmname=$1
   fi
 
-  echo ""
-  docker rmi "$vmname"
-  echo ""
+  for i in $vmname; do
+    echo ""
+    docker rmi "$i"
+    echo ""
+  done
 }
 
 build_image() {
