@@ -86,11 +86,11 @@ function readinput() {
 #
 ###################################################
 
-compose_up () {
+up () {
   docker-compose up -d
 }
 
-compose_down () {
+down () {
   # down would remove the container
   docker-compose stop
 }
@@ -102,7 +102,7 @@ compose_down () {
 #
 ###################################################
 
-list_running_containers() {
+ls() {
   echo ""
   echo "Running Containers:"
   echo ""
@@ -116,16 +116,16 @@ list_stopped_containers() {
   docker ps -f "status=exited"
 }
 
-list_all_containers() {
+la() {
   echo ""
   echo "All Containers:"
   echo ""
   docker container ls -a
 }
 
-stop_running_container() {
+stop() {
   if [[ "" == "$1" ]]; then
-    list_running_containers
+    ls
     readinput -e -p "Enter Container name to stop: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -139,7 +139,45 @@ stop_running_container() {
   done
 }
 
-start_container() {
+kill() {
+  if [[ "" == "$1" ]]; then
+    ls
+    readinput -e -p "Enter Container name to stop: " -i "$vmname" vmname
+    if [[ "" == "$vmname" ]]; then return; fi
+  else
+    vmname=$1
+  fi
+
+  for i in $vmname; do
+    echo ""
+    docker kill "$i"
+    echo ""
+  done
+}
+
+
+create() {
+  if [[ "" == "$1" ]]; then
+    lsi
+    readinput -e -p "Enter Image name to instantiate: " -i "$vmname" vmname
+    if [[ "" == "$vmname" ]]; then return; fi
+  else
+    vmname=$1
+  fi
+
+  for i in $vmname; do
+    echo ""
+    if docker ps -a --format '{{.Names}}' | grep -Eq "^$(echo $i|sed 's#/#_#g')\$"; then
+      docker restart $(echo $i|sed 's#/#_#g')
+    else
+      docker run --name $(echo $i|sed 's#/#_#g') -d  $i
+    fi
+    echo ""
+  done
+}
+
+
+start() {
   if [[ "" == "$1" ]]; then
     list_stopped_containers
     readinput -e -p "Enter Container name to start: " -i "$vmname" vmname
@@ -156,7 +194,7 @@ start_container() {
 }
 
 
-remove_container() {
+rm() {
   if [[ "" == "$1" ]]; then
     list_stopped_containers
     readinput -e -p "Enter Container name to remove: " -i "$vmname" vmname
@@ -173,7 +211,7 @@ remove_container() {
   done
 }
 
-remove_stopped_containers() {
+rms() {
   docker container prune
 }
 
@@ -184,22 +222,22 @@ remove_stopped_containers() {
 #
 ###################################################
 
-list_all_images() {
+lsi() {
   docker image ls
 }
 
-list_dangling_images() {
+lsd() {
   docker images -f "dangling=true"
 }
 
-remove_dangling_images() {
+rmd() {
   docker rmi $(docker images -f "dangling=true" -q)
 }
 
 
-remove_image() {
+rmi() {
   if [[ "" == "$1" ]]; then
-    list_all_images
+    lsi
     readinput -e -p "Enter Image name to remove: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -213,8 +251,8 @@ remove_image() {
   done
 }
 
-build_image() {
-  if [[ -f docker-compose.yaml ]]; then
+build() {
+  if [[ -f docker-compose.yaml || -f docher-compose.yml ]]; then
     docker-compose build
   else
     readinput -e -p "Enter tag: " -i "$vmname" vmname
@@ -224,15 +262,17 @@ build_image() {
 }
 
 
+
+
 ###################################################
 #
-# Console
+# con
 #
 ###################################################
 
-console() {
+con() {
   if [[ "" == "$1" ]]; then
-    list_running_containers
+    ls
     readinput -e -p "Enter Container name to connect to: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -261,62 +301,67 @@ show_menus() {
     echo -e "-------------------------------------------"
     echo ""
 
-    if [[ -f docker-compose.yaml ]]; then
+    if [[ -f docker-compose.yaml || -f docker-compose.yml ]]; then
       echo -e "${GRE}Compose${STD}"
       echo ""
-      echo -e "${GRE}[up]${STD}    Up      $DM"
-      echo -e "${GRE}[down]${STD}  Down    $DM"
+      echo -e "${GRE}[up]${STD}     Up      $DM"
+      echo -e "${GRE}[down]${STD}   Down    $DM"
       echo ""
     fi
 
     echo -e "${GRE}Containers${STD}"
     echo ""
-    echo -e "${GRE}[la]${STD}    List    All       Containers"
-    echo -e "${GRE}[ls]${STD}    List    Running   Containers"
+    echo -e "${GRE}[la]${STD}     List    All       Containers"
+    echo -e "${GRE}[ls]${STD}     List    Running   Containers"
     echo ""
-    echo -e "${GRE}[start]${STD} Start   Container"
-    echo -e "${GRE}[stop]${STD}  Stop    Container"
-    echo -e "${GRE}[rm]${STD}    Remove  Container"
-    echo -e "${GRE}[rms]${STD}   Remove  Stopped Containers"
+    echo -e "${GRE}[create]${STD} Create  Container"
+    echo -e "${GRE}[start]${STD}  Start   Container"
+    echo -e "${GRE}[stop]${STD}   Stop    Container"
+    echo -e "${GRE}[kill]${STD}   Kill    Container"
+    echo -e "${GRE}[rm]${STD}     Remove  Container"
+    echo -e "${GRE}[rms]${STD}    Remove  Stopped Containers"
     echo ""
 
     echo -e "${GRE}Images${STD}"
     echo ""
-    echo -e "${GRE}[lsi]${STD}   List    All       Images"
-    echo -e "${GRE}[lsd]${STD}   List    Dangling  Images"
-    echo -e "${GRE}[rmd]${STD}   Remove  Dangling  Images"
-    echo -e "${GRE}[rmi]${STD}   Remove  Image"
+    echo -e "${GRE}[lsi]${STD}    List    All       Images"
+    echo -e "${GRE}[lsd]${STD}    List    Dangling  Images"
+    echo -e "${GRE}[rmd]${STD}    Remove  Dangling  Images"
+    echo -e "${GRE}[rmi]${STD}    Remove  Image"
     echo ""
-    echo -e "${GRE}[edit]${STD}  Edit    Dockerfile"
-    echo -e "${GRE}[build]${STD} Build   Image"
+    echo -e "${GRE}[edit]${STD}   Edit    Dockerfile"
+    echo -e "${GRE}[build]${STD}  Build   Image"
     echo ""
 
-    echo -e "${GRE}Console${STD}"
+    echo -e "${GRE}con${STD}"
     echo ""
-    echo -e "${GRE}[con]${STD}   Connect to Container"
+    echo -e "${GRE}[con]${STD}    Connect to Container"
 
     echo ""
 }
 
 read_options(){
+    trap 'echo "";exit 0' SIGINT
     local choice
     read -p "Enter choice or q to exit: " choice
     case $choice in
-        up)    compose_up;pause;;
-        down)  compose_down;pause;;
-        ls)    list_running_containers;pause;;
-        la)    list_all_containers;pause;;
-        stop)  stop_running_container;pause;;
-        start) start_container;pause;;
-        rm)    remove_container;pause;;
-        rms)   remove_stopped_containers;pause;;
-        lsi)   list_all_images;pause;;
-        lsd)   list_dangling_images;pause;;
-        rmd)   remove_dangling_images;pause;;
-        rmi)   remove_image;pause;;
-        edit)  $editor Dockerfile;pause;;
-        build) build_image;pause;;
-        con)   console;pause;;
+        up)     up;pause;;
+        down)   down;pause;;
+        ls)     ls;pause;;
+        la)     la;pause;;
+        stop)   stop;pause;;
+        kill)   kill;pause;;
+        create) create;pause;;
+        start)  start;pause;;
+        rm)     rm;pause;;
+        rms)    rms;pause;;
+        lsi)    lsi;pause;;
+        lsd)    lsd;pause;;
+        rmd)    rmd;pause;;
+        rmi)    rmi;pause;;
+        edit)   $editor Dockerfile;pause;;
+        build)  build;pause;;
+        con)    con;pause;;
 
         q|x) exit 0;;
         *) echo -e "${RED}Error...${STD}" && sleep 1
@@ -335,8 +380,13 @@ trap '' SIGINT SIGQUIT SIGTSTP
 # Main Loop
 ###################################################
 
-while true
-do
-    show_menus
-    read_options
-done
+if [[ $(type -t $1) == function && $1 != "" ]]; then
+  $1
+else
+  while true
+  do
+      show_menus
+      read_options
+  done
+fi
+
