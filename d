@@ -106,7 +106,7 @@ ls() {
   echo ""
   echo "Running Containers:"
   echo ""
-  docker ps
+  docker ps -f "status=running"
 }
 
 list_stopped_containers() {
@@ -114,6 +114,13 @@ list_stopped_containers() {
   echo "Stopped Containers:"
   echo ""
   docker ps -f "status=exited"
+}
+
+list_paused_containers() {
+  echo ""
+  echo "Paused Containers:"
+  echo ""
+  docker ps -f "status=paused"
 }
 
 la() {
@@ -135,6 +142,22 @@ stop() {
   for i in $vmname; do
     echo ""
     docker stop "$i"
+    echo ""
+  done
+}
+
+cpause() {
+  if [[ "" == "$1" ]]; then
+    ls
+    readinput -e -p "Enter Container name to pause: " -i "$vmname" vmname
+    if [[ "" == "$vmname" ]]; then return; fi
+  else
+    vmname=$1
+  fi
+
+  for i in $vmname; do
+    echo ""
+    docker pause "$i"
     echo ""
   done
 }
@@ -189,6 +212,22 @@ start() {
   for i in $vmname; do
     echo ""
     docker start "$i"
+    echo ""
+  done
+}
+
+cunpause() {
+  if [[ "" == "$1" ]]; then
+    list_paused_containers
+    readinput -e -p "Enter Container name to unpause: " -i "$vmname" vmname
+    if [[ "" == "$vmname" ]]; then return; fi
+  else
+    vmname=$1
+  fi
+
+  for i in $vmname; do
+    echo ""
+    docker unpause "$i"
     echo ""
   done
 }
@@ -311,31 +350,33 @@ show_menus() {
 
     echo -e "${GRE}Containers${STD}"
     echo ""
-    echo -e "${GRE}[la]${STD}     List    All       Containers"
-    echo -e "${GRE}[ls]${STD}     List    Running   Containers"
+    echo -e "${GRE}[la]${STD}       List    All       Containers"
+    echo -e "${GRE}[ls]${STD}       List    Running   Containers"
     echo ""
-    echo -e "${GRE}[create]${STD} Create  Container"
-    echo -e "${GRE}[start]${STD}  Start   Container"
-    echo -e "${GRE}[stop]${STD}   Stop    Container"
-    echo -e "${GRE}[kill]${STD}   Kill    Container"
-    echo -e "${GRE}[rm]${STD}     Remove  Container"
-    echo -e "${GRE}[rms]${STD}    Remove  Stopped Containers"
+    echo -e "${GRE}[create]${STD}   Create  Container"
+    echo -e "${GRE}[start]${STD}    Start   Container"
+    echo -e "${GRE}[pause]${STD}    Pause   Container"
+    echo -e "${GRE}[unpause]${STD}  Unpause Container"
+    echo -e "${GRE}[stop]${STD}     Stop    Container"
+    echo -e "${GRE}[kill]${STD}     Kill    Container"
+    echo -e "${GRE}[rm]${STD}       Remove  Container"
+    echo -e "${GRE}[rms]${STD}      Remove  Stopped Containers"
     echo ""
 
     echo -e "${GRE}Images${STD}"
     echo ""
-    echo -e "${GRE}[lsi]${STD}    List    All       Images"
-    echo -e "${GRE}[lsd]${STD}    List    Dangling  Images"
-    echo -e "${GRE}[rmd]${STD}    Remove  Dangling  Images"
-    echo -e "${GRE}[rmi]${STD}    Remove  Image"
+    echo -e "${GRE}[lsi]${STD}      List    All       Images"
+    echo -e "${GRE}[lsd]${STD}      List    Dangling  Images"
+    echo -e "${GRE}[rmd]${STD}      Remove  Dangling  Images"
+    echo -e "${GRE}[rmi]${STD}      Remove  Image"
     echo ""
-    echo -e "${GRE}[edit]${STD}   Edit    Dockerfile"
-    echo -e "${GRE}[build]${STD}  Build   Image"
+    echo -e "${GRE}[edit]${STD}     Edit    Dockerfile"
+    echo -e "${GRE}[build]${STD}    Build   Image"
     echo ""
 
-    echo -e "${GRE}con${STD}"
+    echo -e "${GRE}Console${STD}"
     echo ""
-    echo -e "${GRE}[con]${STD}    Connect to Container"
+    echo -e "${GRE}[con]${STD}      Connect to Container"
 
     echo ""
 }
@@ -345,23 +386,25 @@ read_options(){
     local choice
     read -p "Enter choice or q to exit: " choice
     case $choice in
-        up)     up;pause;;
-        down)   down;pause;;
-        ls)     ls;pause;;
-        la)     la;pause;;
-        stop)   stop;pause;;
-        kill)   kill;pause;;
-        create) create;pause;;
-        start)  start;pause;;
-        rm)     rm;pause;;
-        rms)    rms;pause;;
-        lsi)    lsi;pause;;
-        lsd)    lsd;pause;;
-        rmd)    rmd;pause;;
-        rmi)    rmi;pause;;
-        edit)   $editor Dockerfile;pause;;
-        build)  build;pause;;
-        con)    con;pause;;
+        up)      up;pause;;
+        down)    down;pause;;
+        ls)      ls;pause;;
+        la)      la;pause;;
+        stop)    stop;pause;;
+        kill)    kill;pause;;
+        create)  create;pause;;
+        pause)   cpause;pause;;
+        unpause) cunpause;pause;;
+        start)   start;pause;;
+        rm)      rm;pause;;
+        rms)     rms;pause;;
+        lsi)     lsi;pause;;
+        lsd)     lsd;pause;;
+        rmd)     rmd;pause;;
+        rmi)     rmi;pause;;
+        edit)    $editor Dockerfile;pause;;
+        build)   build;pause;;
+        con)     con;pause;;
 
         q|x) exit 0;;
         *) echo -e "${RED}Error...${STD}" && sleep 1
