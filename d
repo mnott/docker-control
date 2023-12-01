@@ -19,6 +19,21 @@
 
 editor=e
 
+_edit() {
+  $editor $1
+}
+
+
+#
+# Check if we have rlwrap
+#
+if command -v rlwrap &>/dev/null; then
+  HISTORY=$HOME/.docker_history;
+  RLWRAP=true;
+else
+  RLWRAP=false;
+fi
+
 #
 # Configure for graphical programs
 #
@@ -67,9 +82,133 @@ STD='\033[0;0;39m'
 ###################################################
 
 
-pause(){
+apause(){
   read -p "Press [Enter] key to continue..." fackEnterKey
 }
+
+###################################################
+#
+# The Logging System. Copied shamelessly from
+#
+# http://github.com/fredpalmer/log4bash
+#
+# I've added error precedence so that we can
+# have actual error loglevels.
+#
+
+# This should probably be the right way - didn't have time to experiment though
+# declare -r INTERACTIVE_MODE="$([ tty --silent ] && echo on || echo off)"
+declare -r INTERACTIVE_MODE=$([ "$(uname)" == "Darwin" ] && echo "on" || echo "off")
+
+# Begin Logging Section
+if [[ "${INTERACTIVE_MODE}" == "off" ]]
+then
+    # Then we don't care about log colors
+    declare -r LOG_DEFAULT_COLOR=""
+    declare -r LOG_ERROR_COLOR=""
+    declare -r LOG_INFO_COLOR=""
+    declare -r LOG_SUCCESS_COLOR=""
+    declare -r LOG_WARN_COLOR=""
+    declare -r LOG_DEBUG_COLOR=""
+else
+    declare -r LOG_DEFAULT_COLOR="\033[0m"
+    declare -r LOG_ERROR_COLOR="\033[1;31m"
+    declare -r LOG_INFO_COLOR="\033[1m"
+    declare -r LOG_SUCCESS_COLOR="\033[1;32m"
+    declare -r LOG_WARN_COLOR="\033[1;33m"
+    declare -r LOG_DEBUG_COLOR="\033[1;34m"
+fi
+
+
+#
+# Log level ranking
+#
+loglevels() {
+    if [[ ${LOGLEVEL} == "SUCCESS" ]]; then lvl=1;
+  elif [[ ${LOGLEVEL} == "ERROR"   ]]; then lvl=2;
+  elif [[ ${LOGLEVEL} == "WARN"    ]]; then lvl=3;
+  elif [[ ${LOGLEVEL} == "INFO"    ]]; then lvl=4;
+  elif [[ ${LOGLEVEL} == "DEBUG"   ]]; then lvl=5;
+  else lvl=4;
+  fi;
+}
+loglevels;
+
+
+#
+# Default log function: add any of the keywords
+# in front of the log message, or nothing for info
+# level.
+#
+log() {
+    if [[ $1 == "DEBUG"   && $lvl >  4 ]]; then shift; log_debug   "$@";
+  elif [[ $1 == "INFO"    && $lvl >  3 ]]; then shift; log_info    "$@";
+  elif [[ $1 == "WARN"    && $lvl >  2 ]]; then shift; log_warn    "$@";
+  elif [[ $1 == "ERROR"   && $lvl >  1 ]]; then shift; log_error   "$@";
+  elif [[ $1 == "SUCCESS" && $lvl > -1 ]]; then shift; log_success "$@";
+  elif [[ $lvl > 3 && $1 != "DEBUG" && $1 != "INFO" && $0 != "WARN" && $0 != "ERROR" && $0 != "SUCCESS" ]]; then
+    log_info "$@";
+  fi
+}
+_log() { log "$@"; }
+
+
+#
+# Print the actual log message
+#
+log_msg() {
+    local log_text="$1"
+    local log_level="$2"
+    local log_color="$3"
+
+    [[ -z ${log_level} ]] && log_level="INFO";
+    [[ -z ${log_color} ]] && log_color="${LOG_INFO_COLOR}";
+
+    printf "${log_color}[$(date +"%Y-%m-%d %H:%M:%S %Z")] "
+    printf "[%-8s] ${log_text} ${LOG_DEFAULT_COLOR}\n" ${log_level};
+    return 0;
+}
+
+
+log_speak()     {
+    if [[ ! ${LOGVOICE} == "true" ]]; then return; fi;
+    if type -P say >/dev/null
+    then
+        local easier_to_say="$1";
+        case "${easier_to_say}" in
+            studionowdev*)
+                easier_to_say="studio now dev ${easier_to_say#studionowdev}";
+                ;;
+            studionow*)
+                easier_to_say="studio now ${easier_to_say#studionow}";
+                ;;
+        esac
+        say "${easier_to_say}";
+    fi
+    return 0;
+}
+
+log_success()  { if [[ $lvl > -1 ]]; then log_msg "$1" "SUCCESS" "${LOG_SUCCESS_COLOR}"; fi; }
+log_error()    { if [[ $lvl >  1 ]]; then log_msg "$1" "ERROR"   "${LOG_ERROR_COLOR}"; log_speak "$1"; fi; }
+log_warn()     { if [[ $lvl >  2 ]]; then log_msg "$1" "WARNING" "${LOG_WARN_COLOR}"; fi; }
+log_info()     { if [[ $lvl >  3 ]]; then log_msg "$1" "INFO"    "${LOG_INFO_COLOR}"; fi; }
+log_debug()    { if [[ $lvl >  4 ]]; then log_msg "$1" "DEBUG"   "${LOG_DEBUG_COLOR}"; fi; }
+log_captains() {
+    if type -P figlet >/dev/null;
+    then
+        figlet -f computer -w 120 "$1";
+    else
+        log "$1";
+    fi
+
+    log_speak "$1";
+
+    return 0;
+}
+
+#
+# End Logging Section
+###################################################
 
 #
 # read -i does not exist on Bash 3 on MacOS
@@ -86,11 +225,11 @@ function readinput() {
 #
 ###################################################
 
-up () {
+_up () {
   docker-compose up -d
 }
 
-down () {
+_down () {
   # down would remove the container
   docker-compose stop
 }
@@ -102,37 +241,37 @@ down () {
 #
 ###################################################
 
-ls() {
+_ls() {
   echo ""
   echo "Running Containers:"
   echo ""
   docker ps -f "status=running"
 }
 
-list_stopped_containers() {
+_list_stopped_containers() {
   echo ""
   echo "Stopped Containers:"
   echo ""
   docker ps -f "status=exited"
 }
 
-list_paused_containers() {
+_lsp() {
   echo ""
   echo "Paused Containers:"
   echo ""
   docker ps -f "status=paused"
 }
 
-la() {
+_la() {
   echo ""
   echo "All Containers:"
   echo ""
   docker container ls -a
 }
 
-stop() {
+_stop() {
   if [[ "" == "$1" ]]; then
-    ls
+    _ls
     readinput -e -p "Enter Container name to stop: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -146,9 +285,9 @@ stop() {
   done
 }
 
-cpause() {
+_pause() {
   if [[ "" == "$1" ]]; then
-    ls
+    _ls
     readinput -e -p "Enter Container name to pause: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -162,10 +301,10 @@ cpause() {
   done
 }
 
-kill() {
+_kill() {
   if [[ "" == "$1" ]]; then
-    ls
-    readinput -e -p "Enter Container name to stop: " -i "$vmname" vmname
+    _ls
+    readinput -e -p "Enter Container name to kill: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
     vmname=$1
@@ -179,9 +318,9 @@ kill() {
 }
 
 
-create() {
+_create() {
   if [[ "" == "$1" ]]; then
-    lsi
+    _lsi
     readinput -e -p "Enter Image name to instantiate: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -200,9 +339,9 @@ create() {
 }
 
 
-start() {
+_start() {
   if [[ "" == "$1" ]]; then
-    list_stopped_containers
+    _list_stopped_containers
     readinput -e -p "Enter Container name to start: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -216,9 +355,9 @@ start() {
   done
 }
 
-cunpause() {
+_unpause() {
   if [[ "" == "$1" ]]; then
-    list_paused_containers
+    _lsp
     readinput -e -p "Enter Container name to unpause: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -233,9 +372,9 @@ cunpause() {
 }
 
 
-rm() {
+_rm() {
   if [[ "" == "$1" ]]; then
-    list_stopped_containers
+    _list_stopped_containers
     readinput -e -p "Enter Container name to remove: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -250,7 +389,8 @@ rm() {
   done
 }
 
-rms() {
+
+_rms() {
   docker container prune
 }
 
@@ -261,22 +401,22 @@ rms() {
 #
 ###################################################
 
-lsi() {
+_lsi() {
   docker image ls
 }
 
-lsd() {
+_lsd() {
   docker images -f "dangling=true"
 }
 
-rmd() {
+_rmd() {
   docker rmi $(docker images -f "dangling=true" -q)
 }
 
 
-rmi() {
+_rmi() {
   if [[ "" == "$1" ]]; then
-    lsi
+    _lsi
     readinput -e -p "Enter Image name to remove: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -290,7 +430,7 @@ rmi() {
   done
 }
 
-build() {
+_build() {
   if [[ -f docker-compose.yaml || -f docher-compose.yml ]]; then
     docker-compose build
   else
@@ -309,9 +449,9 @@ build() {
 #
 ###################################################
 
-con() {
+_con() {
   if [[ "" == "$1" ]]; then
-    ls
+    _ls
     readinput -e -p "Enter Container name to connect to: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -382,33 +522,81 @@ show_menus() {
 }
 
 read_options(){
+    sleeptime=0.5
     trap 'echo "";exit 0' SIGINT
     local choice
-    read -p "Enter choice or q to exit: " choice
-    case $choice in
-        up)      up;pause;;
-        down)    down;pause;;
-        ls)      ls;pause;;
-        la)      la;pause;;
-        stop)    stop;pause;;
-        kill)    kill;pause;;
-        create)  create;pause;;
-        pause)   cpause;pause;;
-        unpause) cunpause;pause;;
-        start)   start;pause;;
-        rm)      rm;pause;;
-        rms)     rms;pause;;
-        lsi)     lsi;pause;;
-        lsd)     lsd;pause;;
-        rmd)     rmd;pause;;
-        rmi)     rmi;pause;;
-        edit)    $editor Dockerfile;pause;;
-        build)   build;pause;;
-        con)     con;pause;;
+    pr="$(echo -e ${GRE}"[Enter] "$STD) to run, choice or q to exit: "
+    if [[ "$RLWRAP" == true ]]; then
+      echo -e $pr
+      choice=$(rlwrap -D 2 -H $HISTORY sh -c 'read REPLY && echo $REPLY')
+    else
+      read -p "$pr" choice
+    fi
+
+    #
+    # Get first word; special handling for commands that
+    # can take arguments
+    #
+    first=$(echo $choice | awk '{print $1;}')
+    if [[    "$first" == "push"
+          || "$first" == "pull"
+          || "$first" == "commit"
+          || "$first" == "add"
+       ]]; then
+        rest=$(echo $choice | awk '{for (i=2; i<=NF; i++) print $i}')
+        _$first $rest
+        apause
+        return
+    fi
+
+    #
+    # Some commands take just exactly one parameter
+    #
+    if [[    "$first" == "swc"
+       ]]; then
+        parm=$(echo $choice | awk '{for (i=2; i<3; i++) print $i}')
+        choice=$(echo $choice | awk '{for (i=3; i<=NF; i++) print $i}')
+        _$first $parm
+        if [[ "$choice" == "" ]]; then
+          return
+        fi
+    fi
+
+    if [[ "$choice" == "" ]]; then
+      _run
+      return
+    fi
+
+    for i in $choice; do
+      case $i in
+        up)      _up;apause;;
+        down)    _down;apause;;
+        ls)      _ls;apause;;
+        la)      _la;apause;;
+        stop)    _stop;apause;;
+        kill)    _kill;apause;;
+        create)  _create;apause;;
+        pause)   _pause;apause;;
+        unpause) _unpause;apause;;
+        start)   _start;apause;;
+        rm)      _rm;apause;;
+        rms)     _rms;apause;;
+        lsi)     _lsi;apause;;
+        lsd)     _lsd;apause;;
+        rmd)     _rmd;apause;;
+        rmi)     _rmi;apause;;
+        edit)    _edit Dockerfile;apause;;
+        build)   _build;apause;;
+        con)     _con;apause;;
 
         q|x) exit 0;;
-        *) echo -e "${RED}Error...${STD}" && sleep 1
-    esac
+        *) if [[ "$RLWRAP" == true && -f "${HISTORY}" ]]; then
+                               cat "$HISTORY" | grep -v "$choice" > "${HISTORY}.sav"
+                               mv "${HISTORY}.sav" "${HISTORY}"
+                            fi
+	   echo -e "${RED}Error...${STD}" && sleep 1
+      esac;
+    done
 }
 
 
@@ -423,13 +611,37 @@ trap '' SIGINT SIGQUIT SIGTSTP
 # Main Loop
 ###################################################
 
-if [[ $(type -t $1) == function && $1 != "" ]]; then
-  $1
+if [[ "$#" -gt 0 ]]; then
+    # Extract the command name and remove the underscore prefix
+    command_name="_$1"
+    shift  # Remove the command name from the arguments list
+
+    # Check if the command is a known function
+    if [[ $(type -t "$command_name") == function ]]; then
+        # Check if there are additional arguments
+        if [[ "$#" -gt 0 ]]; then
+            # Loop through all remaining arguments
+            for arg in "$@"; do
+                # Call the function with each argument
+                $command_name "$arg"
+            done
+        else
+            # Call the function without arguments
+            $command_name
+        fi
+    else
+        log ERROR "! ${command_name:1} is not a known command."
+    fi
 else
-  while true
-  do
-      show_menus
-      read_options
-  done
+    while true
+    do
+        show_menus
+        read_options
+    done
 fi
+
+
+
+
+
 
