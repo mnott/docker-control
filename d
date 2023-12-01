@@ -248,7 +248,7 @@ _ls() {
   docker ps -f "status=running"
 }
 
-_list_stopped_containers() {
+lss() {
   echo ""
   echo "Stopped Containers:"
   echo ""
@@ -341,7 +341,7 @@ _create() {
 
 _start() {
   if [[ "" == "$1" ]]; then
-    _list_stopped_containers
+    lss
     readinput -e -p "Enter Container name to start: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -374,7 +374,7 @@ _unpause() {
 
 _rm() {
   if [[ "" == "$1" ]]; then
-    _list_stopped_containers
+    lss
     readinput -e -p "Enter Container name to remove: " -i "$vmname" vmname
     if [[ "" == "$vmname" ]]; then return; fi
   else
@@ -492,6 +492,8 @@ show_menus() {
     echo ""
     echo -e "${GRE}[la]${STD}       List    All       Containers"
     echo -e "${GRE}[ls]${STD}       List    Running   Containers"
+    echo -e "${GRE}[lsp]${STD}      List    Paused    Containers"
+    echo -e "${GRE}[lss]${STD}      List    Stopped   Containers"
     echo ""
     echo -e "${GRE}[create]${STD}   Create  Container"
     echo -e "${GRE}[start]${STD}    Start   Container"
@@ -572,6 +574,8 @@ read_options(){
         up)      _up;apause;;
         down)    _down;apause;;
         ls)      _ls;apause;;
+        lsp)     _lsp;apause;;
+        lss)     _lss;apause;;
         la)      _la;apause;;
         stop)    _stop;apause;;
         kill)    _kill;apause;;
