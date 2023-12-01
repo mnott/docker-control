@@ -527,7 +527,7 @@ read_options(){
     sleeptime=0.5
     trap 'echo "";exit 0' SIGINT
     local choice
-    pr="$(echo -e ${GRE}"[Enter] "$STD) to run, choice or q to exit: "
+    pr="$(echo -e ${GRE}"Choose Option "$STD) to run, or q to exit: "
     if [[ "$RLWRAP" == true ]]; then
       echo -e $pr
       choice=$(rlwrap -D 2 -H $HISTORY sh -c 'read REPLY && echo $REPLY')
@@ -564,10 +564,6 @@ read_options(){
         fi
     fi
 
-    if [[ "$choice" == "" ]]; then
-      _run
-      return
-    fi
 
     for i in $choice; do
       case $i in
