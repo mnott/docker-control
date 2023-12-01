@@ -329,11 +329,15 @@ _create() {
 
   for i in $vmname; do
     echo ""
-    if docker ps -a --format '{{.Names}}' | grep -Eq "^$(echo $i|sed 's#/#_#g')\$"; then
-      docker restart $(echo $i|sed 's#/#_#g')
-    else
-      docker run --name $(echo $i|sed 's#/#_#g') -d  $i
-    fi
+      if [[ -f docker-compose.yaml || -f docher-compose.yml ]]; then
+        docker-compose up -d
+      else
+        if docker ps -a --format '{{.Names}}' | grep -Eq "^$(echo $i|sed 's#/#_#g')\$"; then
+          docker restart $(echo $i|sed 's#/#_#g')
+        else
+          docker run --name $(echo $i|sed 's#/#_#g') -d  $i
+        fi
+      fi
     echo ""
   done
 }
