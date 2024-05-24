@@ -335,6 +335,7 @@ _create() {
         if docker ps -a --format '{{.Names}}' | grep -Eq "^$(echo $i|sed 's#/#_#g')\$"; then
           docker restart $(echo $i|sed 's#/#_#g')
         else
+          echo Starting $(echo $i|sed 's#/#_#g') 
           docker run --name $(echo $i|sed 's#/#_#g') -d  $i
         fi
       fi
